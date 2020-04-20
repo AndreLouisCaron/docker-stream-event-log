@@ -1,0 +1,43 @@
+# -*- coding: utf-8 -*-
+
+version: "3"
+
+services:
+  # continuously generate data.
+  generate:
+    build: ./generate/
+    volumes:
+       - share:/var/lib/demo/
+    environment:
+      PID_PATH: /var/lib/demo/generate.pid
+      LOG_PATH: /var/lib/demo/events.log
+      PYTHONUNBUFFERED: "TRUE"
+
+  # tail the log file.
+  fluent-bit:
+    image: fluent/fluent-bit
+    volumes:
+       - share:/var/lib/demo/
+       - fluent-bit-db:/var/lib/fluent-bit/
+       - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+    environment:
+      LOG_PATH: /var/lib/demo/events.log
+
+  # ensure the file never grows too big.
+  logrotate:
+    build: ./logrotate/
+    volumes:
+       - share:/var/lib/demo/
+       - logrotate-db:/var/lib/logrotate/
+    environment:
+      LOG_SIZE: "1k"
+      LOG_PATH: /var/lib/demo/events.log
+      PID_PATH: /var/lib/demo/generate.pid
+      CRON_SCHEDULE: "* * * * *"  # every minute
+      LOGROTATE_DB: /var/lib/logrotate/logrotate.db
+    pid: "service:generate"
+
+volumes:
+  share:
+  fluent-bit-db:
+  logrotate-db:
